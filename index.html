@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Garry Tan's gstack Explained + doob's Critique</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', -apple-system, system-ui, sans-serif; background: #0d1117; color: #c9d1d9; line-height: 1.7; }
+  .container { max-width: 1000px; margin: 0 auto; padding: 40px 24px 80px; }
+
+  h1 { font-size: 1.9rem; color: #f0f6fc; margin-bottom: 6px; }
+  .subtitle { color: #8b949e; font-size: 1rem; margin-bottom: 40px; }
+  .subtitle a { color: #58a6ff; text-decoration: none; }
+
+  /* --- Callout Boxes --- */
+  .callout {
+    border-radius: 10px; padding: 20px 24px; margin-bottom: 24px;
+    border: 1px solid #30363d; font-size: 0.92rem;
+  }
+  .callout-blue { background: #1f6feb12; border-color: #1f6feb40; }
+  .callout-green { background: #3fb95012; border-color: #3fb95040; }
+  .callout-orange { background: #f0883e12; border-color: #f0883e40; }
+  .callout-red { background: #f8514912; border-color: #f8514940; }
+  .callout strong { color: #f0f6fc; }
+  .callout-title { font-weight: 700; margin-bottom: 8px; font-size: 0.95rem; }
+  .callout-blue .callout-title { color: #58a6ff; }
+  .callout-green .callout-title { color: #3fb950; }
+  .callout-orange .callout-title { color: #f0883e; }
+  .callout-red .callout-title { color: #f85149; }
+
+  /* --- Sections --- */
+  section { margin-bottom: 56px; }
+  section > h2 {
+    font-size: 1.25rem; color: #f0f6fc; margin-bottom: 20px;
+    padding-bottom: 10px; border-bottom: 1px solid #21262d;
+  }
+  .section-num {
+    display: inline-block; background: #1f6feb; color: #fff;
+    width: 28px; height: 28px; border-radius: 50%; text-align: center;
+    line-height: 28px; font-size: 0.8rem; font-weight: 700; margin-right: 10px;
+  }
+
+  /* --- Analogy Box --- */
+  .analogy {
+    background: #161b22; border: 1px solid #30363d; border-radius: 10px;
+    padding: 20px 24px; margin: 16px 0; font-size: 0.9rem;
+  }
+  .analogy::before {
+    content: "Think of it this way..."; display: block;
+    color: #d2a8ff; font-weight: 700; font-size: 0.82rem; margin-bottom: 8px;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+
+  /* --- Visual Diagrams --- */
+  .diagram {
+    background: #161b22; border: 1px solid #30363d; border-radius: 10px;
+    padding: 24px; margin: 16px 0; overflow-x: auto;
+  }
+  .diagram-title { color: #8b949e; font-size: 0.8rem; margin-bottom: 14px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  /* Folder tree */
+  .tree { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.82rem; line-height: 2; }
+  .tree .folder { color: #79c0ff; font-weight: 600; }
+  .tree .file { color: #8b949e; }
+  .tree .fat { color: #f85149; font-weight: 600; }
+  .tree .ok { color: #3fb950; }
+  .tree .explain { color: #d2a8ff; font-style: italic; font-size: 0.78rem; }
+
+  /* Flow boxes */
+  .flow { display: flex; align-items: stretch; gap: 0; margin: 12px 0; flex-wrap: wrap; }
+  .flow-step {
+    flex: 1; min-width: 180px; padding: 16px; font-size: 0.85rem;
+    border-radius: 8px; border: 1px solid #30363d;
+  }
+  .flow-step strong { display: block; color: #f0f6fc; margin-bottom: 4px; font-size: 0.88rem; }
+  .flow-arrow { width: 36px; display: flex; align-items: center; justify-content: center; color: #484f58; font-size: 1.3rem; flex-shrink: 0; }
+  .step-blue { background: #1f6feb10; }
+  .step-red { background: #f8514910; }
+  .step-green { background: #3fb95010; }
+
+  /* Bar chart */
+  .bars { display: flex; align-items: flex-end; gap: 16px; padding: 10px 0; }
+  .bar-item { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .bar-rect { width: 52px; border-radius: 4px 4px 0 0; }
+  .bar-label { font-size: 0.7rem; color: #8b949e; text-align: center; max-width: 70px; }
+  .bar-val { font-size: 0.75rem; color: #f0f6fc; font-weight: 600; }
+
+  /* Comparison grid */
+  .vs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 700px) { .vs-grid { grid-template-columns: 1fr; } }
+  .vs-card { border-radius: 10px; padding: 20px 24px; border: 1px solid #30363d; }
+  .vs-card h3 { font-size: 1rem; margin-bottom: 12px; }
+  .vs-card ul { padding-left: 20px; font-size: 0.9rem; }
+  .vs-card li { margin-bottom: 8px; }
+  .vs-yes { background: #3fb95008; }
+  .vs-yes h3 { color: #3fb950; }
+  .vs-no { background: #f8514908; }
+  .vs-no h3 { color: #f85149; }
+
+  /* Quote */
+  .quote {
+    background: #161b22; border-left: 3px solid #f0883e;
+    border-radius: 0 8px 8px 0; padding: 16px 20px; margin: 12px 0; font-size: 0.9rem;
+  }
+  .quote .who { font-weight: 700; color: #f0883e; font-size: 0.85rem; margin-bottom: 4px; }
+
+  /* Table */
+  .simple-table { width: 100%; border-collapse: collapse; background: #161b22; border-radius: 10px; overflow: hidden; border: 1px solid #30363d; margin: 16px 0; }
+  .simple-table th { text-align: left; padding: 12px 16px; background: #21262d; color: #f0f6fc; font-size: 0.82rem; }
+  .simple-table td { padding: 12px 16px; border-top: 1px solid #21262d; font-size: 0.85rem; vertical-align: top; }
+  .simple-table tr:hover td { background: #1c2128; }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 600; }
+  .t-green { background: #3fb95020; color: #3fb950; }
+  .t-yellow { background: #d2992120; color: #d29921; }
+  .t-red { background: #f8514920; color: #f85149; }
+
+  /* Bottom line */
+  .bottom-line {
+    background: linear-gradient(135deg, #1f6feb12, #f0883e12);
+    border: 1px solid #30363d; border-radius: 12px; padding: 28px 32px; margin-top: 40px;
+  }
+  .bottom-line h2 { color: #f0f6fc; font-size: 1.15rem; margin-bottom: 12px; border: none; padding: 0; }
+  .bottom-line p { font-size: 0.92rem; }
+  .score-badge {
+    display: inline-block; margin-top: 16px; padding: 8px 20px;
+    border-radius: 6px; font-weight: 700; font-size: 1rem;
+  }
+
+  /* Divider */
+  .part-divider {
+    text-align: center; padding: 40px 0 20px; color: #484f58;
+    font-size: 0.8rem; text-transform: uppercase; letter-spacing: 2px;
+    border-top: 1px solid #21262d; margin-top: 20px;
+  }
+
+  p { margin-bottom: 12px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>Garry Tan's gstack Explained</h1>
+<p class="subtitle">
+  What the repo actually does, how skills work, and whether doob's critique holds up<br>
+  <a href="https://github.com/garrytan/gstack">github.com/garrytan/gstack</a> &mdash; 19k stars, 2k forks
+</p>
+
+<!-- ============================================ -->
+<!-- PART 1: FOUNDATIONS                          -->
+<!-- ============================================ -->
+
+<section>
+  <h2><span class="section-num">1</span> Quick refresher: what are "skills" in Claude Code?</h2>
+
+  <p>You already use skills &mdash; your <strong>WhatsApp skill</strong> and your <strong>superpowers plugin</strong> are skills. But let's make sure we're on the same page about how they work under the hood.</p>
+
+  <div class="analogy">
+    A <strong>skill</strong> is like a <strong>cheat sheet you hand to Claude</strong> before asking it to do something.
+    When you type <code>/whatsapp</code>, Claude reads your <code>~/.claude/skills/whatsapp/SKILL.md</code> file
+    and suddenly "knows" how to send WhatsApp messages. Without that file, it has no idea.<br><br>
+    The <strong>SKILL.md file IS the skill</strong>. It's just a markdown file with instructions that gets loaded into Claude's memory (context window) when you invoke it.
+  </div>
+
+  <div class="callout callout-blue">
+    <div class="callout-title">Key concepts you need</div>
+    <strong>Context window</strong> = Claude's working memory for this conversation. Everything loaded into it costs <strong>tokens</strong> (like credits). Bigger files = more tokens burned = less room for your actual conversation.<br><br>
+    <strong>SKILL.md</strong> = The instruction file Claude reads when you invoke a skill. Lives inside a folder.<br><br>
+    <strong>CLAUDE.md</strong> = Project-level instructions Claude always reads when you open a project (like your KKW or French Learning CLAUDE.md files).<br><br>
+    <strong>Progressive disclosure</strong> = Instead of loading ALL instructions upfront, you give Claude a short summary and let it read more details only when needed. Like giving someone a table of contents first, not the whole book.
+  </div>
+</section>
+
+<!-- ============================================ -->
+<!-- PART 2: GARRY TAN'S REPO                     -->
+<!-- ============================================ -->
+
+<section>
+  <h2><span class="section-num">2</span> What Garry Tan actually built</h2>
+
+  <p>Garry Tan (CEO of Y Combinator) built a collection of <strong>10 Claude Code skills</strong> that help him run his work as a CEO. Think of it as his personal AI toolbox.</p>
+
+  <div class="callout callout-green">
+    <div class="callout-title">The 10 tools in plain English</div>
+    <table class="simple-table">
+      <thead><tr><th>Skill</th><th>What it does (in normal words)</th></tr></thead>
+      <tbody>
+        <tr><td><code>/gstack</code> (root)</td><td>Opens a headless browser to test websites &mdash; like Playwright but controlled by Claude. "Go to this URL, click this button, screenshot it"</td></tr>
+        <tr><td><code>/qa-only</code></td><td>Tests a feature and writes a bug report, but doesn't fix anything</td></tr>
+        <tr><td><code>/qa</code></td><td>Tests a feature AND fixes bugs it finds</td></tr>
+        <tr><td><code>/ship</code></td><td>Full deployment workflow &mdash; test, review, merge, deploy</td></tr>
+        <tr><td><code>/review</code></td><td>Code review on a pull request</td></tr>
+        <tr><td><code>/retro</code></td><td>Post-project retrospective &mdash; what went well, what didn't</td></tr>
+        <tr><td><code>/plan-ceo-review</code></td><td>CEO-level review of a project plan</td></tr>
+        <tr><td><code>/plan-eng-review</code></td><td>Engineering review of a project plan</td></tr>
+        <tr><td><code>/plan-design-review</code></td><td>Design review (report only)</td></tr>
+        <tr><td><code>/qa-design-review</code></td><td>Design audit that also fixes issues</td></tr>
+        <tr><td><code>/document-release</code></td><td>Auto-generates release notes after shipping</td></tr>
+        <tr><td><code>/design-consultation</code></td><td>Get design feedback on UI/UX</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="analogy">
+    Imagine you built 10 different WhatsApp-like skills, each for a different part of your insurance workflow:
+    <code>/generate-report</code>, <code>/check-commission</code>, <code>/onboard-agent</code>, etc.
+    That's essentially what Garry did for his CEO workflow.
+  </div>
+</section>
+
+<section>
+  <h2><span class="section-num">3</span> How the repo is organized</h2>
+
+  <p>Here's the actual folder structure. Pay attention to what's <span style="color:#3fb950;">green (good)</span> and what's <span style="color:#f85149;">red (problematic)</span>.</p>
+
+  <div class="diagram">
+    <div class="diagram-title">garrytan/gstack folder structure</div>
+    <div class="tree">
+      <div><span class="folder">gstack/</span></div>
+      <div>&nbsp;&nbsp;<span class="fat">SKILL.md</span> <span class="explain">&larr; THE PROBLEM: 443 lines, 16KB, everything crammed in here</span></div>
+      <div>&nbsp;&nbsp;<span class="file">SKILL.md.tmpl</span> <span class="explain">&larr; template that auto-generates SKILL.md (clever)</span></div>
+      <div>&nbsp;&nbsp;<span class="file">CLAUDE.md</span> <span class="explain">&larr; project instructions (like your KKW CLAUDE.md)</span></div>
+      <div>&nbsp;&nbsp;<span class="folder">browse/</span> <span class="explain">&larr; the headless browser tool (the main tech)</span></div>
+      <div>&nbsp;&nbsp;<span class="folder">scripts/</span> <span class="explain">&larr; build tools, code generators</span></div>
+      <div>&nbsp;&nbsp;<span class="folder">test/</span> <span class="explain">&larr; 3 levels of testing (free, AI-judged, full E2E)</span></div>
+      <div>&nbsp;&nbsp;</div>
+      <div>&nbsp;&nbsp;<span class="explain">Each skill has its own folder with its own SKILL.md:</span></div>
+      <div>&nbsp;&nbsp;<span class="ok">qa-only/SKILL.md</span></div>
+      <div>&nbsp;&nbsp;<span class="ok">ship/SKILL.md</span></div>
+      <div>&nbsp;&nbsp;<span class="ok">review/SKILL.md</span></div>
+      <div>&nbsp;&nbsp;<span class="ok">retro/SKILL.md</span></div>
+      <div>&nbsp;&nbsp;<span class="ok">plan-ceo-review/SKILL.md</span></div>
+      <div>&nbsp;&nbsp;<span class="ok">plan-eng-review/SKILL.md</span></div>
+      <div>&nbsp;&nbsp;<span class="ok">plan-design-review/SKILL.md</span></div>
+      <div>&nbsp;&nbsp;<span class="ok">qa-design-review/SKILL.md</span></div>
+      <div>&nbsp;&nbsp;<span class="ok">document-release/SKILL.md</span></div>
+      <div>&nbsp;&nbsp;<span class="ok">design-consultation/SKILL.md</span></div>
+    </div>
+  </div>
+
+  <div class="callout callout-green">
+    <div class="callout-title">What Garry did right</div>
+    <ul style="padding-left: 18px;">
+      <li><strong>Each skill gets its own folder</strong> &mdash; <code>/ship</code>, <code>/review</code>, <code>/qa</code> each have their own SKILL.md. That's modular and clean.</li>
+      <li><strong>Auto-generated docs</strong> &mdash; SKILL.md files are generated from templates (<code>.tmpl</code> files), so they stay in sync with the code. Like auto-generating your KKW reports from data.</li>
+      <li><strong>3-tier testing</strong> &mdash; Free tests, AI-judge tests ($0.15), and full end-to-end tests ($3.85). This is serious engineering.</li>
+    </ul>
+  </div>
+
+  <div class="callout callout-red">
+    <div class="callout-title">What Garry got wrong</div>
+    <p>The <strong>root SKILL.md</strong> (the main one) is 443 lines long. Every time Claude invokes <code>/gstack</code>, ALL 443 lines get loaded into memory. Here's what's inside:</p>
+  </div>
+
+  <div class="diagram">
+    <div class="diagram-title">What's inside the bloated root SKILL.md (443 lines)</div>
+    <div class="bars">
+      <div class="bar-item">
+        <div class="bar-val">~80</div>
+        <div class="bar-rect" style="height: 50px; background: #484f58;"></div>
+        <div class="bar-label">Setup &amp; preamble</div>
+      </div>
+      <div class="bar-item">
+        <div class="bar-val">~45</div>
+        <div class="bar-rect" style="height: 32px; background: #484f58;"></div>
+        <div class="bar-label">Question format rules</div>
+      </div>
+      <div class="bar-item">
+        <div class="bar-val">~65</div>
+        <div class="bar-rect" style="height: 42px; background: #484f58;"></div>
+        <div class="bar-label">Contributor mode</div>
+      </div>
+      <div class="bar-item">
+        <div class="bar-val">~220</div>
+        <div class="bar-rect" style="height: 140px; background: #f85149; opacity: 0.75;"></div>
+        <div class="bar-label">Browser commands (full reference)</div>
+      </div>
+      <div class="bar-item">
+        <div class="bar-val">~33</div>
+        <div class="bar-rect" style="height: 22px; background: #484f58;"></div>
+        <div class="bar-label">Other</div>
+      </div>
+    </div>
+    <p style="margin-top: 12px; font-size: 0.85rem; color: #f85149;">
+      <strong>Half the file</strong> is a full browser command reference that Claude only needs when actually browsing.
+      It gets loaded EVERY time, even if you're just doing a code review.
+    </p>
+  </div>
+
+  <div class="analogy">
+    Imagine every time you ask your KKW automation to generate ONE report, it first loads the entire manual for ALL 59 scripts into memory &mdash;
+    including scripts for Binance screening, WhatsApp messaging, and French learning. That's the waste here.
+    You'd want it to only load the report-generation instructions.
+  </div>
+</section>
+
+<section>
+  <h2><span class="section-num">4</span> Why this matters: tokens = money and capacity</h2>
+
+  <div class="diagram">
+    <div class="diagram-title">How Garry's approach loads context (wasteful)</div>
+    <div class="flow">
+      <div class="flow-step step-blue">
+        <strong>You type /gstack</strong>
+        Claude loads the root SKILL.md
+      </div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-step step-red">
+        <strong>443 lines loaded</strong>
+        Browser reference, contributor rules, formatting rules &mdash; ALL of it
+      </div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-step step-red">
+        <strong>Claude uses maybe 20%</strong>
+        ~80% of those tokens are wasted on stuff not needed right now
+      </div>
+    </div>
+
+    <div class="diagram-title" style="margin-top: 24px;">How it SHOULD work (progressive disclosure)</div>
+    <div class="flow">
+      <div class="flow-step step-blue">
+        <strong>You type /gstack</strong>
+        Claude loads a short summary (~30 lines)
+      </div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-step step-green">
+        <strong>Need browser commands?</strong>
+        Claude reads references/browse-commands.md only if needed
+      </div>
+      <div class="flow-arrow">&rarr;</div>
+      <div class="flow-step step-green">
+        <strong>Only loads what's needed</strong>
+        Saves tokens, leaves more room for your conversation
+      </div>
+    </div>
+  </div>
+
+  <div class="callout callout-blue">
+    <div class="callout-title">Why should you care?</div>
+    <p>Your superpowers plugin already does this the right way &mdash; each skill (brainstorming, TDD, debugging, etc.) is a separate small file. When you invoke <code>/brainstorm</code>, it only loads the brainstorming instructions, not the entire debugging manual too. That's the pattern doob is advocating for.</p>
+  </div>
+</section>
+
+<!-- ============================================ -->
+<div class="part-divider">Part 2 &mdash; doob's critique</div>
+<!-- ============================================ -->
+
+<section>
+  <h2><span class="section-num">5</span> What doob said</h2>
+
+  <div class="quote">
+    <div class="who">doob</div>
+    <p>Wrong folder structure and hierarchy. Bad skill breakdown where he clubs all the knowledge together in one skill.md file instead of breaking them down into different references.</p>
+  </div>
+
+  <div class="quote">
+    <div class="who">doob (follow-up)</div>
+    <p>That repository has many bad practices you wouldn't want junior engineers to adopt. You want to make skills as concise and optimal to guide your agent in the right direction. That's why they have references and scripts as folders for the agent to index and dig more if needed. Basically progressive searching/disclosure.</p>
+    <p style="margin-top: 8px;">You also want the skill to be modular for different agents to use. The systematic approach I just shared helps u to save your tokens as well so that you don't blow your limits away.</p>
+    <p style="margin-top: 12px; color: #8b949e; font-style: italic;">
+      Skills folder &mdash; Skill A, B (basic and advanced), C<br>
+      Agents folder &mdash; Agent 1 (Side Worker, adopt skill A and B), Agent 2 (Manager, adopt C and skill B but does more in-depth stuff)
+    </p>
+  </div>
+</section>
+
+<section>
+  <h2><span class="section-num">6</span> doob's proposed architecture</h2>
+
+  <p>doob suggests separating <strong>skills</strong> (the knowledge/instructions) from <strong>agents</strong> (the workers who use those skills). Different agents can mix-and-match skills.</p>
+
+  <div class="diagram">
+    <div class="diagram-title">doob's ideal structure</div>
+    <div class="tree">
+      <div><span class="folder">project/</span></div>
+      <div>&nbsp;&nbsp;<span class="folder">skills/</span> <span class="explain">&larr; just the instruction files, small and focused</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="ok">skill-a/</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">SKILL.md</span> <span class="explain">&larr; short entry point (like a table of contents)</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="folder">references/</span> <span class="explain">&larr; detailed docs, loaded only when needed</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="ok">skill-b/</span> <span class="explain">&larr; another focused skill</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="ok">skill-c/</span></div>
+      <div>&nbsp;&nbsp;<span class="folder">agents/</span> <span class="explain">&larr; workers that combine multiple skills</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">agent-1/</span> <span class="explain">&larr; "Side Worker" uses skill A + B</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="file">agent-2/</span> <span class="explain">&larr; "Manager" uses skill C + B (deeper)</span></div>
+    </div>
+  </div>
+
+  <div class="analogy">
+    Think of it like your insurance team:<br><br>
+    <strong>Skills</strong> = training manuals (one for "prospecting", one for "claims", one for "commission calculation")<br>
+    <strong>Agents</strong> = team members who use different combinations of those manuals<br><br>
+    A new agent might only need the "prospecting" manual. A team leader needs "prospecting" + "commission calculation".
+    You wouldn't hand everyone ALL the manuals on day one &mdash; you'd give them what they need for their role.
+  </div>
+</section>
+
+<section>
+  <h2><span class="section-num">7</span> The verdict: who's right?</h2>
+
+  <div class="vs-grid">
+    <div class="vs-card vs-yes">
+      <h3>Where doob is RIGHT</h3>
+      <ul>
+        <li><strong>Root SKILL.md is too fat</strong> &mdash; 443 lines / 16KB loaded every single time. The 220-line browser command reference should be a separate file that Claude reads only when it needs to browse.</li>
+        <li><strong>Progressive disclosure saves tokens</strong> &mdash; Small index first, load details on demand. This is genuinely better. Your superpowers plugin already does this.</li>
+        <li><strong>Skills should be modular</strong> &mdash; The idea that different agents can pick and choose which skills to use is solid architecture for complex setups.</li>
+      </ul>
+    </div>
+    <div class="vs-card vs-no">
+      <h3>Where doob is WRONG or exaggerating</h3>
+      <ul>
+        <li><strong>"Wrong folder structure"</strong> &mdash; Actually wrong. The repo HAS 12 separate skill folders, each with its own SKILL.md. doob either didn't look at the repo properly, or ignored this.</li>
+        <li><strong>"Many bad practices"</strong> &mdash; Vague and unsupported. The repo has auto-generated docs, a 3-tier test suite, and a proper build pipeline. That's better than 95% of Claude Code setups out there.</li>
+        <li><strong>"Clubs all knowledge in one file"</strong> &mdash; Factually wrong. There are 11+ separate SKILL.md files. The problem is ONLY the root one being too large, not that "everything is in one file".</li>
+        <li><strong>Dismissive tone</strong> &mdash; "Bad practices junior engineers shouldn't adopt" is harsh for a working, battle-tested 19k-star repo from a YC CEO who clearly uses it daily.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="section-num">8</span> Side-by-side comparison</h2>
+
+  <table class="simple-table">
+    <thead>
+      <tr>
+        <th style="width:22%">Aspect</th>
+        <th style="width:40%">garrytan/gstack</th>
+        <th style="width:38%">doob's critique</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Folder structure</td>
+        <td>12 sub-skill directories, each with own SKILL.md <span class="tag t-green">Modular</span></td>
+        <td>"Wrong structure" &mdash; didn't look at the sub-dirs <span class="tag t-red">Inaccurate</span></td>
+      </tr>
+      <tr>
+        <td>Root SKILL.md size</td>
+        <td>443 lines, 16KB, loads everything at once <span class="tag t-red">Too big</span></td>
+        <td>"Break into references" <span class="tag t-green">Valid</span></td>
+      </tr>
+      <tr>
+        <td>Progressive disclosure</td>
+        <td>Not implemented for the root skill <span class="tag t-yellow">Partial</span></td>
+        <td>Core recommendation, well-explained <span class="tag t-green">Valid</span></td>
+      </tr>
+      <tr>
+        <td>Build &amp; test pipeline</td>
+        <td>Auto-generated docs, 3-tier tests, dev tools <span class="tag t-green">Strong</span></td>
+        <td>Completely ignored <span class="tag t-yellow">Overlooked</span></td>
+      </tr>
+      <tr>
+        <td>Token efficiency</td>
+        <td>~16KB loaded every invocation <span class="tag t-red">Wasteful</span></td>
+        <td>"Save your tokens" <span class="tag t-green">Valid point</span></td>
+      </tr>
+      <tr>
+        <td>Agents / modularity</td>
+        <td>Skills share browser infrastructure <span class="tag t-yellow">OK for his use case</span></td>
+        <td>Skills + Agents separation <span class="tag t-green">Good idea</span></td>
+      </tr>
+      <tr>
+        <td>Overall tone</td>
+        <td>&mdash;</td>
+        <td>"Bad practices", "junior engineers" &mdash; dismissive for a 19k-star repo <span class="tag t-red">Harsh</span></td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- Bottom Line -->
+<div class="bottom-line">
+  <h2>Bottom line</h2>
+  <p>
+    doob spots a <strong>real issue</strong> &mdash; the root SKILL.md is too large and wastes tokens by loading everything upfront.
+    His progressive disclosure recommendation is solid and worth applying.
+  </p>
+  <p>
+    But he <strong>oversells the criticism</strong> by calling the whole repo "bad practices" without acknowledging that the sub-skills ARE already modular (12 separate folders),
+    and the engineering quality (auto-generated docs, 3-tier testing) is genuinely strong.
+    He also claims everything is "in one skill.md file" which is factually wrong &mdash; he probably only looked at the root file and assumed that was it.
+  </p>
+  <p style="margin-top: 12px; color: #8b949e;">
+    It reads like someone who learned one good pattern and now applies it as the universal standard,
+    without fully examining what the repo actually contains.
+  </p>
+  <div class="score-badge" style="background: #d2992125; color: #d29921;">
+    doob's accuracy: ~40% right, ~60% overstated or wrong
+  </div>
+</div>
+
+</div>
+</body>
+</html>
