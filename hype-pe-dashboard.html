@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HYPE P/E Dashboard — 360 days</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { font-family: 'Inter', -apple-system, system-ui, sans-serif;
+    background: #0d1117; color: #c9d1d9; line-height: 1.5; }
+  .container { max-width: 1200px; margin: 0 auto; padding: 32px 24px 80px; }
+  h1 { font-size: 1.8rem; color: #f0f6fc; margin-bottom: 6px; }
+  .subtitle { color: #8b949e; font-size: 0.95rem; margin-bottom: 24px; }
+  .subtitle a { color: #58a6ff; text-decoration: none; }
+
+  .grid { display: grid; gap: 16px; }
+  .kpis { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-bottom: 24px; }
+  .kpi { background: #161b22; border: 1px solid #30363d; border-radius: 10px;
+    padding: 14px 18px; }
+  .kpi .label { color: #8b949e; font-size: 0.78rem; text-transform: uppercase;
+    letter-spacing: 0.05em; margin-bottom: 6px; }
+  .kpi .value { color: #f0f6fc; font-size: 1.4rem; font-weight: 600; }
+  .kpi .sub { color: #8b949e; font-size: 0.78rem; margin-top: 4px; }
+  .pe-headline { background: linear-gradient(135deg, #1f6feb22, #3fb95022);
+    border: 1px solid #58a6ff44; }
+  .pe-headline .value { color: #58a6ff; font-size: 1.8rem; }
+
+  .card { background: #161b22; border: 1px solid #30363d; border-radius: 10px;
+    padding: 18px 20px 24px; margin-bottom: 20px; }
+  .card h2 { font-size: 1.05rem; color: #f0f6fc; margin-bottom: 12px;
+    font-weight: 600; }
+  .card .desc { color: #8b949e; font-size: 0.83rem; margin-bottom: 12px; }
+  .chart-box { position: relative; height: 360px; }
+
+  .controls { display: flex; gap: 10px; align-items: center; margin-bottom: 14px;
+    flex-wrap: wrap; }
+  .controls label { color: #8b949e; font-size: 0.85rem; }
+  .toggle { display: inline-flex; background: #0d1117; border: 1px solid #30363d;
+    border-radius: 8px; overflow: hidden; }
+  .toggle button { background: transparent; color: #8b949e; border: 0;
+    padding: 6px 12px; cursor: pointer; font-size: 0.85rem; font-family: inherit; }
+  .toggle button.active { background: #1f6feb; color: #fff; }
+  .toggle button:hover:not(.active) { color: #c9d1d9; background: #21262d; }
+
+  .stats { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+  .status { padding: 10px 14px; border-radius: 8px; font-size: 0.88rem;
+    margin-bottom: 20px; border: 1px solid; }
+  .status.info { background: #1f6feb12; border-color: #1f6feb55; color: #58a6ff; }
+  .status.error { background: #f8514912; border-color: #f8514955; color: #f85149; }
+  .status.warn { background: #f0883e12; border-color: #f0883e55; color: #f0883e; }
+  .hidden { display: none; }
+
+  footer { color: #6e7681; font-size: 0.8rem; margin-top: 32px;
+    border-top: 1px solid #21262d; padding-top: 16px; }
+  footer code { background: #0d1117; padding: 2px 6px; border-radius: 4px;
+    border: 1px solid #30363d; font-size: 0.78rem; }
+  .skeleton { color: #6e7681; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>📈 HYPE Price-to-Earnings Dashboard</h1>
+  <div class="subtitle">
+    Hyperliquid (HYPE) valued against the Assistance Fund's daily buyback / burn.
+    Past 360 days. Data: <a href="https://www.coingecko.com/en/coins/hyperliquid" target="_blank" rel="noopener">CoinGecko</a> (price, mcap) ·
+    <a href="https://defillama.com/protocol/hyperliquid-perps" target="_blank" rel="noopener">DeFiLlama</a> (holders revenue = AF buyback).
+  </div>
+
+  <div id="status" class="status info">⏳ Loading 360 days of data…</div>
+
+  <div class="grid kpis" id="kpis">
+    <div class="kpi"><div class="label">HYPE price</div><div class="value skeleton" id="kpi-price">—</div></div>
+    <div class="kpi"><div class="label">Market cap</div><div class="value skeleton" id="kpi-mcap">—</div></div>
+    <div class="kpi"><div class="label">Latest daily buyback</div><div class="value skeleton" id="kpi-buyback">—</div><div class="sub" id="kpi-buyback-date">—</div></div>
+    <div class="kpi"><div class="label">30d-avg buyback</div><div class="value skeleton" id="kpi-buyback30">—</div><div class="sub">smoother basis</div></div>
+    <div class="kpi"><div class="label">Annualized earnings</div><div class="value skeleton" id="kpi-earn">—</div><div class="sub">daily × 365</div></div>
+    <div class="kpi pe-headline"><div class="label">Current P/E</div><div class="value skeleton" id="kpi-pe">—</div><div class="sub" id="kpi-pe-basis">annualized daily buyback</div></div>
+  </div>
+
+  <div class="card">
+    <h2>Historical P/E ratio</h2>
+    <div class="desc">P/E = market cap ÷ (daily buyback × 365). Toggle smoothing to switch between today's daily figure and the trailing 30-day average.</div>
+    <div class="controls">
+      <label>Earnings basis</label>
+      <div class="toggle" id="pe-basis">
+        <button data-basis="daily">Daily × 365</button>
+        <button data-basis="30d" class="active">30d avg × 365</button>
+      </div>
+    </div>
+    <div class="chart-box"><canvas id="pe-chart"></canvas></div>
+  </div>
+
+  <div class="card">
+    <h2>Statistics over 360 days</h2>
+    <div class="grid stats">
+      <div class="kpi"><div class="label">Median P/E</div><div class="value" id="stat-median">—</div></div>
+      <div class="kpi"><div class="label">Min P/E</div><div class="value" id="stat-min">—</div></div>
+      <div class="kpi"><div class="label">Max P/E</div><div class="value" id="stat-max">—</div></div>
+      <div class="kpi"><div class="label">Latest is <em>cheaper than</em></div><div class="value" id="stat-pct">—</div><div class="sub">% of history</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Price &amp; daily buybacks</h2>
+    <div class="desc">HYPE/USD (left axis, line) vs daily Assistance Fund buyback in USD (right axis, bars + 30d MA).</div>
+    <div class="chart-box"><canvas id="price-chart"></canvas></div>
+  </div>
+
+  <div class="card">
+    <h2>Market cap vs annualized earnings (log)</h2>
+    <div class="desc">When the two lines diverge, the P/E expands or compresses.</div>
+    <div class="chart-box"><canvas id="mcap-chart"></canvas></div>
+  </div>
+
+  <footer>
+    <p><strong>Methodology.</strong>
+      <em>Market cap</em> = CoinGecko's reported daily market cap.
+      <em>Earnings</em> = daily USD value of HYPE bought back &amp; burned by the
+      Assistance Fund, sourced from DeFiLlama's "holders revenue" series for
+      <code>hyperliquid-perps</code>. <em>P/E</em> = market cap ÷ (earnings × 365).
+      Crypto P/E is an annualized-yield convention, not a GAAP earnings ratio:
+      it answers <em>"how many years of current buybacks does the market cap
+      represent?"</em>.</p>
+    <p style="margin-top:8px">If charts fail to load, your browser may be blocking
+      cross-origin requests to <code>api.coingecko.com</code> or
+      <code>api.llama.fi</code> (rare). Open the developer console for details.</p>
+  </footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const setStatus = (msg, kind = "info") => {
+    const el = $("status");
+    el.textContent = msg;
+    el.className = "status " + kind;
+  };
+  const fmtUSD = (x) => {
+    if (x == null || !isFinite(x)) return "—";
+    const a = Math.abs(x);
+    if (a >= 1e9) return "$" + (x / 1e9).toFixed(2) + "B";
+    if (a >= 1e6) return "$" + (x / 1e6).toFixed(2) + "M";
+    if (a >= 1e3) return "$" + (x / 1e3).toFixed(2) + "K";
+    return "$" + x.toFixed(2);
+  };
+  const fmtMult = (x) => (x == null || !isFinite(x)) ? "—" : x.toFixed(1) + "×";
+
+  const toYMD = (d) => {
+    const dt = new Date(d);
+    return dt.toISOString().slice(0, 10);
+  };
+
+  async function fetchJSON(url) {
+    const r = await fetch(url, { headers: { accept: "application/json" } });
+    if (!r.ok) throw new Error(url + " -> HTTP " + r.status);
+    return r.json();
+  }
+
+  // ----- charts ----------------------------------------------------------
+  Chart.defaults.color = "#c9d1d9";
+  Chart.defaults.borderColor = "#30363d";
+  Chart.defaults.font.family = "Inter, -apple-system, system-ui, sans-serif";
+
+  const baseTimeAxis = {
+    type: "time",
+    time: { unit: "month", tooltipFormat: "yyyy-MM-dd" },
+    grid: { color: "#21262d" },
+    ticks: { color: "#8b949e" },
+  };
+
+  function makeLineChart(canvasId, datasets, yOpts = {}) {
+    const ctx = document.getElementById(canvasId).getContext("2d");
+    return new Chart(ctx, {
+      type: "line",
+      data: { datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: { legend: { labels: { color: "#c9d1d9" } } },
+        scales: {
+          x: baseTimeAxis,
+          y: Object.assign(
+            { grid: { color: "#21262d" }, ticks: { color: "#8b949e" } },
+            yOpts
+          ),
+        },
+      },
+    });
+  }
+
+  // ----- main ------------------------------------------------------------
+  let DATA = null;
+  let peChart = null;
+
+  async function load() {
+    const cgURL = "https://api.coingecko.com/api/v3/coins/hyperliquid/market_chart"
+      + "?vs_currency=usd&days=360&interval=daily";
+    const dlURL = "https://api.llama.fi/summary/fees/hyperliquid-perps"
+      + "?dataType=dailyHoldersRevenue";
+
+    setStatus("⏳ Fetching CoinGecko price/mcap + DeFiLlama buybacks…", "info");
+
+    let cg, dl;
+    try {
+      [cg, dl] = await Promise.all([fetchJSON(cgURL), fetchJSON(dlURL)]);
+    } catch (e) {
+      setStatus("❌ Failed to load data: " + e.message
+        + ". Try opening this file again, or check the browser console.",
+        "error");
+      throw e;
+    }
+
+    // CoinGecko: prices = [[ms, usd], ...], market_caps = [[ms, usd], ...]
+    const priceByDate = new Map();
+    const mcapByDate = new Map();
+    for (const [ts, v] of (cg.prices || [])) priceByDate.set(toYMD(ts), v);
+    for (const [ts, v] of (cg.market_caps || [])) mcapByDate.set(toYMD(ts), v);
+
+    // DeFiLlama: totalDataChart = [[unix_seconds, usd], ...]
+    const buybackByDate = new Map();
+    for (const [ts, v] of (dl.totalDataChart || [])) {
+      buybackByDate.set(toYMD(ts * 1000), Number(v) || 0);
+    }
+
+    // Merge by date over the last 360 days, using inner join on CG dates
+    // (CG sets the calendar; DL is filled with 0 if absent — those days
+    // simply yield no earnings, but we drop them from PE to keep it clean.)
+    const dates = Array.from(priceByDate.keys()).sort();
+    const rows = [];
+    for (const d of dates) {
+      const price = priceByDate.get(d);
+      const mcap = mcapByDate.get(d);
+      const buyback = buybackByDate.get(d);
+      if (price == null || mcap == null) continue;
+      rows.push({
+        date: d,
+        ts: new Date(d + "T00:00:00Z").getTime(),
+        price,
+        mcap,
+        buyback: buyback == null ? null : buyback,
+      });
+    }
+
+    // 30-day rolling avg of buyback
+    const win = 30;
+    const buybackArr = rows.map(r => r.buyback);
+    rows.forEach((r, i) => {
+      const slice = buybackArr.slice(Math.max(0, i - win + 1), i + 1)
+        .filter(v => v != null);
+      r.buyback30 = slice.length >= 7
+        ? slice.reduce((a, b) => a + b, 0) / slice.length
+        : null;
+      r.earnAnn = r.buyback != null ? r.buyback * 365 : null;
+      r.earnAnn30 = r.buyback30 != null ? r.buyback30 * 365 : null;
+      r.pe = (r.earnAnn && r.earnAnn > 0) ? r.mcap / r.earnAnn : null;
+      r.pe30 = (r.earnAnn30 && r.earnAnn30 > 0) ? r.mcap / r.earnAnn30 : null;
+    });
+
+    DATA = rows;
+    renderKPIs(rows);
+    renderCharts(rows);
+    setStatus("✅ Loaded " + rows.length + " days. Latest: " + rows[rows.length - 1].date, "info");
+  }
+
+  function renderKPIs(rows) {
+    const last = rows[rows.length - 1];
+    $("kpi-price").textContent = "$" + last.price.toFixed(2);
+    $("kpi-price").classList.remove("skeleton");
+    $("kpi-mcap").textContent = fmtUSD(last.mcap);
+    $("kpi-mcap").classList.remove("skeleton");
+    $("kpi-buyback").textContent = fmtUSD(last.buyback);
+    $("kpi-buyback-date").textContent = "as of " + last.date;
+    $("kpi-buyback").classList.remove("skeleton");
+    $("kpi-buyback30").textContent = fmtUSD(last.buyback30);
+    $("kpi-buyback30").classList.remove("skeleton");
+    $("kpi-earn").textContent = fmtUSD(last.earnAnn);
+    $("kpi-earn").classList.remove("skeleton");
+    $("kpi-pe").textContent = fmtMult(last.pe30);
+    $("kpi-pe-basis").textContent = "annualized 30-day average";
+    $("kpi-pe").classList.remove("skeleton");
+
+    const peSeries = rows.map(r => r.pe30).filter(v => v != null && isFinite(v));
+    if (peSeries.length) {
+      const sorted = [...peSeries].sort((a, b) => a - b);
+      const median = sorted[Math.floor(sorted.length / 2)];
+      const min = sorted[0];
+      const max = sorted[sorted.length - 1];
+      const latest = peSeries[peSeries.length - 1];
+      const pct = (peSeries.filter(v => v >= latest).length / peSeries.length) * 100;
+      $("stat-median").textContent = fmtMult(median);
+      $("stat-min").textContent = fmtMult(min);
+      $("stat-max").textContent = fmtMult(max);
+      $("stat-pct").textContent = pct.toFixed(0) + "%";
+    }
+  }
+
+  function renderCharts(rows) {
+    // ---- PE chart (toggleable basis)
+    const peCanvas = $("pe-chart").getContext("2d");
+    function buildPE(basis) {
+      const key = basis === "daily" ? "pe" : "pe30";
+      return [{
+        label: basis === "daily" ? "P/E (daily × 365)" : "P/E (30d avg × 365)",
+        data: rows.map(r => ({ x: r.ts, y: r[key] })),
+        borderColor: "#58a6ff",
+        backgroundColor: "#58a6ff22",
+        borderWidth: 2,
+        pointRadius: 0,
+        tension: 0.15,
+        fill: true,
+      }];
+    }
+    peChart = new Chart(peCanvas, {
+      type: "line",
+      data: { datasets: buildPE("30d") },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: { legend: { labels: { color: "#c9d1d9" } } },
+        scales: {
+          x: baseTimeAxis,
+          y: {
+            title: { display: true, text: "P/E (×)", color: "#8b949e" },
+            grid: { color: "#21262d" },
+            ticks: { color: "#8b949e", callback: v => v + "×" },
+          },
+        },
+      },
+    });
+
+    document.querySelectorAll("#pe-basis button").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("#pe-basis button").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        const basis = btn.dataset.basis;
+        peChart.data.datasets = buildPE(basis);
+        peChart.update();
+        const last = rows[rows.length - 1];
+        $("kpi-pe").textContent = fmtMult(basis === "daily" ? last.pe : last.pe30);
+        $("kpi-pe-basis").textContent = basis === "daily"
+          ? "annualized daily buyback"
+          : "annualized 30-day average";
+      });
+    });
+
+    // ---- Price + buyback chart
+    makeMixedChart();
+    // ---- Market cap vs annualized earnings
+    makeMcapChart();
+  }
+
+  function makeMixedChart() {
+    const ctx = $("price-chart").getContext("2d");
+    new Chart(ctx, {
+      data: {
+        datasets: [
+          {
+            type: "line",
+            label: "HYPE price (USD)",
+            yAxisID: "yPrice",
+            data: DATA.map(r => ({ x: r.ts, y: r.price })),
+            borderColor: "#f0f6fc",
+            borderWidth: 2,
+            pointRadius: 0,
+            tension: 0.15,
+          },
+          {
+            type: "bar",
+            label: "Daily buyback (USD)",
+            yAxisID: "yBuy",
+            data: DATA.map(r => ({ x: r.ts, y: r.buyback })),
+            backgroundColor: "#3fb95066",
+            borderColor: "#3fb950",
+            borderWidth: 0,
+            barThickness: 2,
+          },
+          {
+            type: "line",
+            label: "Buyback 30d avg",
+            yAxisID: "yBuy",
+            data: DATA.map(r => ({ x: r.ts, y: r.buyback30 })),
+            borderColor: "#f0883e",
+            borderDash: [4, 4],
+            borderWidth: 2,
+            pointRadius: 0,
+            tension: 0.2,
+          },
+        ],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: { legend: { labels: { color: "#c9d1d9" } } },
+        scales: {
+          x: baseTimeAxis,
+          yPrice: {
+            position: "left",
+            title: { display: true, text: "HYPE (USD)", color: "#8b949e" },
+            grid: { color: "#21262d" },
+            ticks: { color: "#8b949e", callback: v => "$" + v },
+          },
+          yBuy: {
+            position: "right",
+            title: { display: true, text: "Buyback (USD)", color: "#8b949e" },
+            grid: { drawOnChartArea: false },
+            ticks: { color: "#8b949e", callback: v => fmtUSD(v) },
+          },
+        },
+      },
+    });
+  }
+
+  function makeMcapChart() {
+    const ctx = $("mcap-chart").getContext("2d");
+    new Chart(ctx, {
+      type: "line",
+      data: {
+        datasets: [
+          {
+            label: "Market cap",
+            data: DATA.map(r => ({ x: r.ts, y: r.mcap })),
+            borderColor: "#58a6ff",
+            borderWidth: 2,
+            pointRadius: 0,
+            tension: 0.15,
+          },
+          {
+            label: "Annualized earnings (30d × 365)",
+            data: DATA.map(r => ({ x: r.ts, y: r.earnAnn30 })),
+            borderColor: "#3fb950",
+            borderWidth: 2,
+            pointRadius: 0,
+            tension: 0.15,
+          },
+        ],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: { legend: { labels: { color: "#c9d1d9" } } },
+        scales: {
+          x: baseTimeAxis,
+          y: {
+            type: "logarithmic",
+            title: { display: true, text: "USD (log)", color: "#8b949e" },
+            grid: { color: "#21262d" },
+            ticks: { color: "#8b949e", callback: v => fmtUSD(v) },
+          },
+        },
+      },
+    });
+  }
+
+  load();
+})();
+</script>
+</body>
+</html>

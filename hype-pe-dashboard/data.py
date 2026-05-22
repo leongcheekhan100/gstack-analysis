@@ -17,12 +17,17 @@ Sources
 
 from __future__ import annotations
 
+import os
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
 import pandas as pd
 import requests
+
+DEMO_MODE = os.environ.get("HYPE_DASHBOARD_DEMO") == "1"
+if DEMO_MODE:
+    import demo_data  # noqa: F401  (used by helpers below)
 
 HL_INFO_URL = "https://api.hyperliquid.xyz/info"
 
@@ -49,6 +54,8 @@ def _post_info(body: dict, timeout: int = 20) -> dict | list:
 
 def get_hype_mid_price() -> float:
     """Latest HYPE/USDC mid price from Hyperliquid."""
+    if DEMO_MODE:
+        return demo_data.get_hype_mid_price()
     mids = _post_info({"type": "allMids"})
     px = mids.get(HYPE_SPOT_PAIR)
     if px is None:
@@ -67,6 +74,8 @@ def _find_hype_token_id() -> str:
 
 def get_hype_supply() -> dict:
     """Returns dict with circulatingSupply, totalSupply, maxSupply (floats)."""
+    if DEMO_MODE:
+        return demo_data.get_hype_supply()
     token_id = _find_hype_token_id()
     details = _post_info({"type": "tokenDetails", "tokenId": token_id})
     return {
@@ -82,6 +91,8 @@ def get_hype_price_history(days: int = 400) -> pd.DataFrame:
 
     Returns DataFrame indexed by UTC date with columns: open, high, low, close, volume.
     """
+    if DEMO_MODE:
+        return demo_data.get_hype_price_history(days)
     end_ms = int(time.time() * 1000)
     start_ms = end_ms - days * 24 * 60 * 60 * 1000
     body = {
@@ -146,6 +157,8 @@ def get_daily_buybacks() -> pd.DataFrame:
 
     Returns DataFrame indexed by UTC date with one column: buyback_usd.
     """
+    if DEMO_MODE:
+        return demo_data.get_daily_buybacks()
     series: list = []
     last_err: Exception | None = None
     for slug in DEFILLAMA_FEE_SLUGS:

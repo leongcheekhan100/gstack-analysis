@@ -24,6 +24,12 @@ st.set_page_config(
     layout="wide",
 )
 
+if hype.DEMO_MODE:
+    st.warning(
+        "⚠️ **Demo mode** — synthetic data. The live APIs are unreachable in "
+        "this environment. Numbers below are illustrative, not real HYPE values."
+    )
+
 
 # ---------- caching --------------------------------------------------------
 
